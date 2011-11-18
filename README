@@ -98,3 +98,34 @@ Mais pour un travail wysiwyg, ça peut se justifier.
 plusieurs plateformes) et de le tester en ligne (par exemple s'il
 s'agit d'un projet Ocsigen), voire carrément gérer la diffusion sur
 des plateformes style Android market ou Apple store.
+
+
+=======		Soutenance #1		=======
+
+- Installer OClosure, utiliser l'éditeur de texte
+  - comprendre comment il marche
+  - comment il est implementé ?
+  - s'il est extensible
+  - utiliser ou ré-implémenter
+- Première version de l'éditeur
+  - client/serveur basique
+  - sans javascript
+  - sauvegarder dans des fichiers
+    dans un premier temps
+- Lire le chapitre 2 du tuto
+- Réflechir aux URL (post ? get ? fichiers accessible url ?)
+
+
+# Bonus
+- Login/Pass (auth)
+- Base de donnée
+  - Git ?
+  - Macaque ?
+  - OCaml MySQL ?
+  - PG OCaml
+
+
+/!\ Sonnette d'alarme /!\
+
+dev@ocsigen.org
+
