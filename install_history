@@ -1,0 +1,27 @@
+    1  man sudo_root
+    2  sudo aptitude install libev-dev libgdm-dev libncurses5-dev libpcre3-dev libsqlite3-dev libssl-dev libpam0g-dev binutils-dev
+    3  sudo apt-get install aptitude
+    4  ls
+    5  wget 'http://ocsigen.org/download/ocsigen-bundle-2.0.1.tar.gz'
+    6  tar -xvzf ocsigen-bundle-2.0.1.tar.gz 
+    7  cd ocsigen-bundle-2.0.1/
+    8  less README 
+    9  make
+   10  sudo aptitude install ocaml
+   11  make
+   12  sudo aptitude build-deps ocsigen-server
+   13  sudo aptitude build-dep ocsigen-server
+   14  sudo aptitude build-dep ocsigen
+   15  make
+   16  aptitude search calendar | grep lib
+   17  sudo aptitude install libcalendar-ocaml-dev
+   18  make
+   19  echo $?
+   20  emacs /home/db0/.bashrc 
+   21  nano /home/db0/.bashrc 
+   22  ls ~/ocsigen
+   23  cat README 
+   24  make run.local
+   25  cat README 
+   26* history | less 
+   27  history > ~/install_history
