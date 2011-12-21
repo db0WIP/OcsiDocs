@@ -1,3 +1,3 @@
 #!/bin/bash
 
-screen -d -m ocsigenserver -c graffiti.conf
+screen -d -m ocsigenserver -c ocsidocs.conf
