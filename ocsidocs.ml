@@ -135,7 +135,9 @@ let main_page () =
 let editdoc name =
   div ~a:[a_class ["span10"]]
    [h1 [pcdata name];
-    
+    h5 [pcdata "Owner : "];
+    p [pcdata (List.assoc name !documents)];
+    h5 [pcdata "Content : "];
    ]
 
 
@@ -143,7 +145,7 @@ let editdoc name =
 
 let left_column () =
   div ~a:[a_class ["span4"]]
-    [h4 [pcdata "Availables Files"];
+    [h4 [pcdata "Availables Documents"];
      doclist ()]
 
 
