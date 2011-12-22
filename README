@@ -129,3 +129,18 @@ des plateformes style Android market ou Apple store.
 
 dev@ocsigen.org
 
+=======		Soutenance #2		=======
+
+- VirtualHost pour nom de domaine port 80
+- Gestion d'utilisateurs
+  - Creation
+  - Login
+- Gestion de fichiers
+  - Creation
+  - Edition
+- Droits & Partage
+  - Sécurité des documents par utilisateur
+  - liste d'utilisateurs par fichiers
+- O'Closure
+  - Remplacer le textarea par l'éditeur O'Closure
+
