@@ -14,6 +14,12 @@ let main_service =
   ~get_params:unit
   ()
 
+let editdoc_service =
+  Eliom_services.service
+  ~path:["documents"]
+  ~get_params:(suffix (string "doc_name")) ()
+
+(* todo: Try to implement as an action *)
 let createdoc_service =
   Eliom_services.post_service
   ~fallback:main_service
@@ -21,21 +27,24 @@ let createdoc_service =
   ()
 
 (* ************************************************************************* *)
-(*                                Functions                                  *)
+(*                            Display Functions                              *)
 (* ************************************************************************* *)
 
-(* HTML Header *)
-let html_header () =
-         head
-	  (title (pcdata "OcsiDocs"))
-	  [ Eliom_output.Html5_forms.css_link
-	  ~uri:(Eliom_output.Html5.make_uri (Eliom_services.static_dir ())
-					    ["css";"bootstrap.css"]) ();
-	    Eliom_output.Html5_forms.css_link
-	    ~uri:(Eliom_output.Html5.make_uri (Eliom_services.static_dir ())
-					      ["css";"style.css"]) ();]
+(* *****                        HTML Header                            ***** *)
 
-(* menu bar *)
+let html_header () =
+  head
+    (title (pcdata "OcsiDocs"))
+    [ Eliom_output.Html5_forms.css_link
+      ~uri:(Eliom_output.Html5.make_uri (Eliom_services.static_dir ())
+      ["css";"bootstrap.css"]) ();
+       Eliom_output.Html5_forms.css_link
+       ~uri:(Eliom_output.Html5.make_uri (Eliom_services.static_dir ())
+        ["css";"style.css"]) ();]
+
+
+(* *****                         Menu Bar                              ***** *)
+
 let menu_bar () =
   div ~a:[a_class ["topbar"]]
     [div ~a:[a_class ["fill"]]
@@ -49,7 +58,9 @@ let menu_bar () =
       ]
     ]
 
-(* create doc form *)
+
+(* *****                       Create Doc Form                         ***** *)
+
 let createdoc_form () =
   Eliom_output.Html5.post_form
   ~service:createdoc_service
@@ -70,7 +81,9 @@ let createdoc_form () =
 	  ()
 	]]) ()
 
-(* list of documents and proprietarys *)
+
+(* *****                 List of Documents and proprietarys            ***** *)
+
 let documents = ref [("toto.txt", "db0");
                      ("tata.txt", "Korfuri");
                      ("tutu.txt", "Thor");
@@ -79,12 +92,96 @@ let documents = ref [("toto.txt", "db0");
                      ("tyty.txt", "db0");
                      ]
 
-(* Doc list *)
+
+(* *****                       Documents List                          ***** *)
+
 let doclist () =
   ul (List.map (fun (name, _) -> 
                   li [Eliom_output.Html5.a
-                        ~service:main_service [pcdata name] ()])
+                        ~service:editdoc_service [pcdata name] name])
                !documents)
+
+
+(* *****                           Main Page                           ***** *)
+
+let main_page () =
+  div ~a:[a_class ["span10"]]
+   [div ~a:[a_class ["row"]]
+     [div ~a:[a_class ["span5"]]
+       [br (); br ();
+        img ~alt:"Ocsigen"
+            ~src:(Eliom_output.Xhtml.make_uri
+		  ~service:(static_dir ())
+	    ["img";"ocsidocs_small.png"])
+	    ();
+       ];
+       div ~a:[a_class ["span4"]]
+        [br (); br (); br ();
+	 h3 ~a:[a_class ["center"]]
+	 [pcdata "Your documents in the cloud with OcsiDocs !"];
+	 br (); br ();
+	 p ~a:[a_class ["center"]]
+	 [pcdata "OcsiDocs is an online";
+	 br ();
+	 pcdata "collaborating text editor."];
+	 createdoc_form ();
+     ];
+    ];
+   ]
+
+
+(* *****                           Edition Page                        ***** *)
+
+let editdoc name =
+  div ~a:[a_class ["span10"]]
+   [h1 [pcdata name];
+    
+   ]
+
+
+(* *****                           Left Column                         ***** *)
+
+let left_column () =
+  div ~a:[a_class ["span4"]]
+    [h4 [pcdata "Availables Files"];
+     doclist ()]
+
+
+(* *****                             Footer                            ***** *)
+
+let footer () =
+  div ~a:[a_class ["footer"]]
+    [p [pcdata "(c) OcsiDocs 2011 - Made with ";
+        Eliom_output.Html5.a
+          (Eliom_services.external_service
+             ~prefix:"http://ocsigen.org"
+             ~path:[""]
+             ~get_params:(suffix (all_suffix "suff"))
+             ())
+          [pcdata "Ocsigen"] [""];
+        pcdata ", web server and powerfull framework in ";
+        Eliom_output.Html5.a
+          (Eliom_services.external_service
+             ~prefix:"http://caml.inria.fr"
+             ~path:[""]
+             ~get_params:(suffix (all_suffix "suff"))
+             ())
+          [pcdata "OCaml"] [""];
+        br ();
+        pcdata "This project is open source : ";
+        Eliom_output.Html5.a
+          (Eliom_services.external_service
+             ~prefix:"https://github.com"
+             ~path:["db0company"]
+             ~get_params:(suffix (all_suffix "suff"))
+             ())
+          [pcdata "Source code available on GitHub"] ["OcsiDocs"];
+       ]]
+
+
+(* ************************************************************************* *)
+(*                          Files Manipulations                              *)
+(* ************************************************************************* *)
 
 (* Using Sys.readdir. *)
 (*let totolol () =
@@ -132,78 +229,6 @@ let plainfiles dir =
        (Array.to_list (Sys.readdir dir)))
 *)
 
-(* main page *)
-let main_page () =
-  div ~a:[a_class ["container"]]
-    [
-      div ~a:[a_class ["content"]]
-        [
-          div ~a:[a_class ["row"]]
-            [
-              div ~a:[a_class ["span10"]]
-                [
-                  div ~a:[a_class ["row"]]
-                  [
-                  div ~a:[a_class ["span5"]]
-                    [
-                     br (); br ();
-                     img
-                       ~alt:"Ocsigen"
-                       ~src:(Eliom_output.Xhtml.make_uri
-                       ~service:(static_dir ()) ["img";"ocsidocs_small.png"])
-                       ();
-		     ];
-		  div ~a:[a_class ["span4"]]
-                    [
-                      br (); br (); br ();
-		      h3 ~a:[a_class ["center"]]
-		         [pcdata "Your documents in the cloud with OcsiDocs !"];
-                      br (); br ();
-		      p ~a:[a_class ["center"]]
-		        [pcdata "OcsiDocs is an online";
-			 br ();
-			 pcdata "collaborating text editor."];
-		      createdoc_form ();
-		    ];
-                 ];
-		 ];
-              div ~a:[a_class ["span4"]]
-                [h4 [pcdata "Availables Files"];
-                 doclist ()]
-            ]
-        ]
-    ]
-
-(* footer *)
-let footer () =
-  div ~a:[a_class ["footer"]]
-    [p [pcdata "(c) OcsiDocs 2011 - Made with ";
-        Eliom_output.Html5.a
-          (Eliom_services.external_service
-             ~prefix:"http://ocsigen.org"
-             ~path:[""]
-             ~get_params:(suffix (all_suffix "suff"))
-             ())
-          [pcdata "Ocsigen"] [""];
-        pcdata ", web server and powerfull framework in ";
-        Eliom_output.Html5.a
-          (Eliom_services.external_service
-             ~prefix:"http://caml.inria.fr"
-             ~path:[""]
-             ~get_params:(suffix (all_suffix "suff"))
-             ())
-          [pcdata "OCaml"] [""];
-        br ();
-        pcdata "This project is open source : ";
-        Eliom_output.Html5.a
-          (Eliom_services.external_service
-             ~prefix:"https://github.com"
-             ~path:["db0company"]
-             ~get_params:(suffix (all_suffix "suff"))
-             ())
-          [pcdata "Source code available on GitHub"] ["OcsiDocs"];
-       ]]
-
 
 (* ************************************************************************* *)
 (*                          Services definitions                             *)
@@ -218,16 +243,37 @@ let _ =
         (html
 	 (html_header ())
 	  (body [menu_bar ();
-		 main_page ();
-		 footer ()
-		 ])));
+		 div ~a:[a_class ["container"]]
+		  [div ~a:[a_class ["content"]]
+		    [div ~a:[a_class ["row"]]
+		    [main_page ();
+		     left_column ()]
+		  ];
+		 ];
+		footer ()
+		])));
 
   Eliom_output.Html5.register
-    ~service:createdoc_service
-    (fun () (doc_name) ->
-       Lwt.return
-        (html (head (title (pcdata "OcsiDocs : Document ")) [])
-	      (body [
-		     h1 [pcdata doc_name];
-		    ])))
-         
+    ~service:editdoc_service
+    (fun doc_name () ->
+      Lwt.return
+        (html
+	 (html_header ())
+	  (body [menu_bar ();
+		 div ~a:[a_class ["container"]]
+		  [div ~a:[a_class ["content"]]
+		    [div ~a:[a_class ["row"]]
+		     [editdoc doc_name;
+		     left_column ()]]
+		  ];
+		footer ()
+		];
+	       )));
+
+  Eliom_output.Action.register
+      ~service:createdoc_service
+      (fun () (doc_name) ->
+        if (*createdoc doc_name*)true
+        then Lwt.return ()
+        else Lwt.return ())
+
