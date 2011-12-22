@@ -58,7 +58,12 @@ body
 }
 
 .center_form
+{ 
+    text-align: center;
+    margin-top: 130px;
+}
+
+.center
 {
     text-align: center;
-    margin-top: 180px;
 }

@@ -14,17 +14,26 @@ let main_service =
   ~get_params:unit
   ()
 
-let editdoc_service =
+let createdoc_service =
   Eliom_services.post_service
   ~fallback:main_service
-  ~post_params:(string "doc_name" ** string "doc_content")
+  ~post_params:(string "doc_name")
   ()
 
 (* ************************************************************************* *)
 (*                                Functions                                  *)
 (* ************************************************************************* *)
 
-let users = ref [("Calvin", "123"); ("Hobbes", "456")]
+(* HTML Header *)
+let html_header () =
+         head
+	  (title (pcdata "OcsiDocs"))
+	  [ Eliom_output.Html5_forms.css_link
+	  ~uri:(Eliom_output.Html5.make_uri (Eliom_services.static_dir ())
+					    ["css";"bootstrap.css"]) ();
+	    Eliom_output.Html5_forms.css_link
+	    ~uri:(Eliom_output.Html5.make_uri (Eliom_services.static_dir ())
+					      ["css";"style.css"]) ();]
 
 (* menu bar *)
 let menu_bar () =
@@ -40,34 +49,88 @@ let menu_bar () =
       ]
     ]
 
-(* edit doc form *)
-
-let editdoc_form () =
+(* create doc form *)
+let createdoc_form () =
   Eliom_output.Html5.post_form
-  ~service:editdoc_service
-  (fun (doc_name, doc_content) ->
+  ~service:createdoc_service
+  (fun (doc_name) ->
     [p ~a:[a_class ["center_form"]]
        [pcdata "Document name :";
-        br ();
-        br ();
+        br (); br ();
         Eliom_output.Html5.string_input
+	  ~a:[a_class ["span3"]]
           ~input_type:`Text
           ~name:doc_name
 	  ();
-        br ();
-        br ();
-(*	pcdata "Document content : ";
-	Eliom_output.Html5.string_input
-	  ~input_type:`Text
-	  ~name:doc_content
-	  ();
-	br ();
-*)
+        br (); br ();
 	Eliom_output.Html5.string_input
 	  ~input_type:`Submit
+          ~a:[a_class ["btn secondary"]]
 	  ~value:"Add a new document"
 	  ()
 	]]) ()
+
+(* list of documents and proprietarys *)
+let documents = ref [("toto.txt", "db0");
+                     ("tata.txt", "Korfuri");
+                     ("tutu.txt", "Thor");
+                     ("titi.txt", "Vincent");
+                     ("tete.txt", "Sofia");
+                     ("tyty.txt", "db0");
+                     ]
+
+(* Doc list *)
+let doclist () =
+  ul (List.map (fun (name, _) -> 
+                  li [Eliom_output.Html5.a
+                        ~service:main_service [pcdata name] ()])
+               !documents)
+
+(* Using Sys.readdir. *)
+(*let totolol () =
+  Array.iter
+    (fun file ->
+       let path = Filename.concat dirname file in
+       (* do something with path *)
+       ())
+    (Sys.readdir dirname)
+ 
+(*-----------------------------*)
+ 
+(* Using Unix.opendir, readdir, and closedir. Note that the "." and ".."
+   directories are included in the result unlike with Sys.readdir. *)
+#load "unix.cma";;
+ 
+let () =
+  let dir =
+    try Unix.opendir dirname
+    with Unix.Unix_error (e, _, _) ->
+      Printf.eprintf "can't opendir %s: %s\n"
+        dirname (Unix.error_message e);
+      exit 255 in
+  try
+    while true do
+      let file = Unix.readdir dir in
+      let path = Filename.concat dirname file in
+      (* do something with path *)
+      ()
+    done
+  with End_of_file ->
+    Unix.closedir dir
+ 
+(*-----------------------------*)
+ 
+(* Get a list of full paths to plain files. *)
+let plainfiles dir =
+  List.filter
+    (fun path ->
+       match Unix.lstat path with
+         | {Unix.st_kind=Unix.S_REG} -> true
+         | _ -> false)
+    (List.map
+       (Filename.concat dir)
+       (Array.to_list (Sys.readdir dir)))
+*)
 
 (* main page *)
 let main_page () =
@@ -78,9 +141,35 @@ let main_page () =
           div ~a:[a_class ["row"]]
             [
               div ~a:[a_class ["span10"]]
-                [editdoc_form ()];
+                [
+                  div ~a:[a_class ["row"]]
+                  [
+                  div ~a:[a_class ["span5"]]
+                    [
+                     br (); br ();
+                     img
+                       ~alt:"Ocsigen"
+                       ~src:(Eliom_output.Xhtml.make_uri
+                       ~service:(static_dir ()) ["img";"ocsidocs_small.png"])
+                       ();
+		     ];
+		  div ~a:[a_class ["span4"]]
+                    [
+                      br (); br (); br ();
+		      h3 ~a:[a_class ["center"]]
+		         [pcdata "Your documents in the cloud with OcsiDocs !"];
+                      br (); br ();
+		      p ~a:[a_class ["center"]]
+		        [pcdata "OcsiDocs is an online";
+			 br ();
+			 pcdata "collaborating text editor."];
+		      createdoc_form ();
+		    ];
+                 ];
+		 ];
               div ~a:[a_class ["span4"]]
-                [h3 [pcdata "stuff"]]
+                [h4 [pcdata "Availables Files"];
+                 doclist ()]
             ]
         ]
     ]
@@ -127,28 +216,18 @@ let _ =
     (fun () () ->
       Lwt.return
         (html
-	 (head
-	  (title (pcdata "OcsiDocs"))
-	  [ Eliom_output.Html5_forms.css_link
-	  ~uri:(Eliom_output.Html5.make_uri (Eliom_services.static_dir ())
-					    ["css";"bootstrap.css"]) ();
-	    Eliom_output.Html5_forms.css_link
-	    ~uri:(Eliom_output.Html5.make_uri (Eliom_services.static_dir ())
-					      ["css";"style.css"]) ();
-					      ])
+	 (html_header ())
 	  (body [menu_bar ();
 		 main_page ();
 		 footer ()
 		 ])));
 
   Eliom_output.Html5.register
-    ~service:editdoc_service
-    (fun () (doc_name, doc_content) ->
+    ~service:createdoc_service
+    (fun () (doc_name) ->
        Lwt.return
         (html (head (title (pcdata "OcsiDocs : Document ")) [])
 	      (body [
 		     h1 [pcdata doc_name];
-                     p [pcdata doc_content]
-		     
 		    ])))
          
