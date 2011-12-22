@@ -1,3 +1,3 @@
 
 all:
-	ocamlfind ocamlc -thread -package eliom.server -c ocsidocs.ml
+	eliomc -c ocsidocs.ml

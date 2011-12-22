@@ -27,6 +27,80 @@ let createdoc_service =
   ()
 
 (* ************************************************************************* *)
+(*                          Files Manipulations                              *)
+(* ************************************************************************* *)
+
+let read_file filename = 
+  lwt chan = Lwt_io.open_file ~mode:Lwt_io.input filename
+  in Lwt_io.read_line chan
+
+(*let read_file2 filename =
+  let filein = open_in filename in
+    let 
+    input_line filein
+*)
+
+
+
+(* todo: raise exception
+  let filein = open_in filename in
+    try input_line filein
+      let line = input_line filein in
+        close_in filein;
+        line
+    with e ->
+    close_in_noerr filein;
+    raise e
+*)
+(*
+(* Using Sys.readdir. *)
+(*let totolol () =
+  Array.iter
+    (fun file ->
+       let path = Filename.concat dirname file in
+       (* do something with path *)
+       ())
+    (Sys.readdir dirname)
+ 
+(*-----------------------------*)
+ 
+(* Using Unix.opendir, readdir, and closedir. Note that the "." and ".."
+   directories are included in the result unlike with Sys.readdir. *)
+#load "unix.cma";;
+ 
+let () =
+  let dir =
+    try Unix.opendir dirname
+    with Unix.Unix_error (e, _, _) ->
+      Printf.eprintf "can't opendir %s: %s\n"
+        dirname (Unix.error_message e);
+      exit 255 in
+  try
+    while true do
+      let file = Unix.readdir dir in
+      let path = Filename.concat dirname file in
+      (* do something with path *)
+      ()
+    done
+  with End_of_file ->
+    Unix.closedir dir
+ 
+(*-----------------------------*)
+ 
+(* Get a list of full paths to plain files. *)
+let plainfiles dir =
+  List.filter
+    (fun path ->
+       match Unix.lstat path with
+         | {Unix.st_kind=Unix.S_REG} -> true
+         | _ -> false)
+    (List.map
+       (Filename.concat dir)
+       (Array.to_list (Sys.readdir dir)))
+*)
+*)
+
+(* ************************************************************************* *)
 (*                            Display Functions                              *)
 (* ************************************************************************* *)
 
@@ -132,13 +206,17 @@ let main_page () =
 
 (* *****                           Edition Page                        ***** *)
 
-let editdoc name =
-  div ~a:[a_class ["span10"]]
-   [h1 [pcdata name];
-    h5 [pcdata "Owner : "];
-    p [pcdata (List.assoc name !documents)];
-    h5 [pcdata "Content : "];
-   ]
+let editdoc doc_name =
+  lwt doc_content = read_file ("docs/"^doc_name) in
+  Lwt.return
+    (
+      div ~a:[a_class ["span10"]]
+	[h1 [pcdata doc_name];
+	 h5 [pcdata "Owner : "];
+	 p [pcdata (List.assoc doc_name !documents)];
+	 h5 [pcdata "Content : "];
+	 p [pcdata doc_content]]
+    )
 
 
 (* *****                           Left Column                         ***** *)
@@ -182,57 +260,6 @@ let footer () =
 
 
 (* ************************************************************************* *)
-(*                          Files Manipulations                              *)
-(* ************************************************************************* *)
-
-(* Using Sys.readdir. *)
-(*let totolol () =
-  Array.iter
-    (fun file ->
-       let path = Filename.concat dirname file in
-       (* do something with path *)
-       ())
-    (Sys.readdir dirname)
- 
-(*-----------------------------*)
- 
-(* Using Unix.opendir, readdir, and closedir. Note that the "." and ".."
-   directories are included in the result unlike with Sys.readdir. *)
-#load "unix.cma";;
- 
-let () =
-  let dir =
-    try Unix.opendir dirname
-    with Unix.Unix_error (e, _, _) ->
-      Printf.eprintf "can't opendir %s: %s\n"
-        dirname (Unix.error_message e);
-      exit 255 in
-  try
-    while true do
-      let file = Unix.readdir dir in
-      let path = Filename.concat dirname file in
-      (* do something with path *)
-      ()
-    done
-  with End_of_file ->
-    Unix.closedir dir
- 
-(*-----------------------------*)
- 
-(* Get a list of full paths to plain files. *)
-let plainfiles dir =
-  List.filter
-    (fun path ->
-       match Unix.lstat path with
-         | {Unix.st_kind=Unix.S_REG} -> true
-         | _ -> false)
-    (List.map
-       (Filename.concat dir)
-       (Array.to_list (Sys.readdir dir)))
-*)
-
-
-(* ************************************************************************* *)
 (*                          Services definitions                             *)
 (* ************************************************************************* *)
 
@@ -258,6 +285,7 @@ let _ =
   Eliom_output.Html5.register
     ~service:editdoc_service
     (fun doc_name () ->
+      lwt editdocform = editdoc doc_name in
       Lwt.return
         (html
 	 (html_header ())
@@ -265,17 +293,23 @@ let _ =
 		 div ~a:[a_class ["container"]]
 		  [div ~a:[a_class ["content"]]
 		    [div ~a:[a_class ["row"]]
-		     [editdoc doc_name;
+		     [editdocform;
 		     left_column ()]]
 		  ];
 		footer ()
 		];
 	       )));
 
-  Eliom_output.Action.register
+  Eliom_output.Redirection.register
       ~service:createdoc_service
-      (fun () (doc_name) ->
+      ~options:`Permanent
+      (fun () doc_name ->
+	print_endline "sdfdfd";
         if (*createdoc doc_name*)true
-        then Lwt.return ()
-        else Lwt.return ())
+        then Lwt.return
+	  (Eliom_services.preapply
+	    ~service:editdoc_service
+	    doc_name
+	  )
+        else Lwt.return main_service)
 
