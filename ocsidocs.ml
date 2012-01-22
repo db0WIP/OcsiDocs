@@ -10,21 +10,85 @@ open Eliom_parameters
 
 let main_service =
   Eliom_services.service
-  ~path:[""]
+    ~path:[""]
+    ~get_params:unit
+    ()
+
+(*let error_service =
+  Eliom_services.service
+  ~path:["error"]
   ~get_params:unit
-  ()
+    ()*)
+
+(* *****                        Users Services                         ***** *)
+
+let connection_service =
+  Eliom_services.post_service
+    ~fallback:main_service
+    ~post_params:(string "name" ** string "password")
+    ()
+
+let disconnection_service =
+  Eliom_services.post_coservice'
+    ~post_params:unit
+    ()
+
+let new_user_form_service =
+  Eliom_services.service
+    ~path:["create account"]
+    ~get_params:unit
+    ()
+
+let account_confirmation_service =
+  Eliom_services.post_coservice
+    ~fallback:new_user_form_service
+    ~post_params:(string "name" ** string "password")
+    ()
+
+(* *****                    Documents Services                         ***** *)
 
 let editdoc_service =
   Eliom_services.service
-  ~path:["documents"]
-  ~get_params:(suffix (string "doc_name")) ()
+    ~path:["docs"]
+    ~get_params:(suffix (string "doc_name"))
+    ()
 
-(* todo: Try to implement as an action *)
 let createdoc_service =
   Eliom_services.post_service
-  ~fallback:main_service
-  ~post_params:(string "doc_name")
-  ()
+    ~fallback:main_service
+    ~post_params:(string "doc_name")
+    ()
+
+
+(* ************************************************************************* *)
+(*                             Data Bases                                    *)
+(* ************************************************************************* *)
+
+(* *****                 List of Documents and owners                  ***** *)
+
+let users = ref [("db0", "lolilol")]
+
+let documents = ref [("toto.txt", "db0");
+                     ("tata.txt", "Korfuri");
+                     ("tutu.txt", "Thor");
+                     ("titi.txt", "Vincent");
+                     ("tete.txt", "Sofia");
+                     ("tyty.txt", "db0");
+                     ]
+
+let username = Eliom_references.eref ~scope:Eliom_common.session None
+
+let wrong_pwd = Eliom_references.eref ~scope:Eliom_common.request false
+
+
+(* ************************************************************************* *)
+(*                              Tools Functions                              *)
+(* ************************************************************************* *)
+
+let check_pwd name pwd =
+  try List.assoc name !users = pwd
+  with Not_found -> false
+
 
 (* ************************************************************************* *)
 (*                          Files Manipulations                              *)
@@ -34,6 +98,14 @@ let read_file filename =
   lwt chan = Lwt_io.open_file ~mode:Lwt_io.input filename
   in Lwt_io.read_line chan
 
+
+let createdoc filename =
+    lwt chan = Lwt_io.open_file
+      ~mode:Lwt_io.input
+      ~flags:[Unix.O_WRONLY; Unix.O_EXCL; Unix.O_CREAT]
+      ~perm:0o600
+      filename
+    in Lwt.return true
 (*let read_file2 filename =
   let filein = open_in filename in
     let 
@@ -116,23 +188,83 @@ let html_header () =
        ~uri:(Eliom_output.Html5.make_uri (Eliom_services.static_dir ())
         ["css";"style.css"]) ();]
 
+(* connection box *)
+let disconnect_box () =
+  Eliom_output.Html5.post_form disconnection_service
+    (fun _ -> [fieldset
+		  [Eliom_output.Html5.string_input
+                      ~input_type:`Submit ~value:"Log out" ()]]) ()
+
+let connection_box () =
+  lwt u = Eliom_references.get username in
+  lwt wp = Eliom_references.get wrong_pwd in
+  Lwt.return
+    (match u with
+      | Some s -> div [p [pcdata "You are connected as "; pcdata s; ];
+                       disconnect_box () ]
+      | None ->
+        let l =
+          [Eliom_output.Html5.post_form
+	      ~service:connection_service
+	      ~a:[a_class ["pull-right"]]
+              (fun (name1, name2) ->
+		[Eliom_output.Html5.string_input
+		       ~input_type:`Text
+		       ~a:[a_class ["input-small"]]
+		       ~name:name1 ();
+		 pcdata " ";
+                     Eliom_output.Html5.string_input
+		       ~input_type:`Password
+		       ~a:[a_class ["input-small"]]
+		       ~name:name2 ();
+		 pcdata " ";
+                     Eliom_output.Html5.string_input
+		       ~input_type:`Submit 
+		       ~a:[a_class ["btn primary"]]
+		       ~value:"Connect" ()
+                    ]) ()]
+        in
+        if wp
+        then div ((p [em [pcdata "Wrong user or password"]])::l)
+        else div l
+    )
+
+let create_account_form () =
+  Eliom_output.Html5.post_form ~service:account_confirmation_service
+    (fun (name1, name2) ->
+      [h1 [pcdata "Create an account"];
+	    fieldset
+	      [label (*~a:[Eliom_output.Html5.a_for name1]*) [pcdata "login: "];
+               Eliom_output.Html5.string_input ~input_type:`Text ~name:name1 ();
+               br ();
+               label (*~a:[Eliom_output.Html5.a_for name2]*) [pcdata "password: "];
+               Eliom_output.Html5.string_input ~input_type:`Password ~name:name2 ();
+               br ();
+               Eliom_output.Html5.string_input ~input_type:`Submit ~value:"Connect" ()
+              ]]
+      ) ()
 
 (* *****                         Menu Bar                              ***** *)
 
 let menu_bar () =
-  div ~a:[a_class ["topbar"]]
-    [div ~a:[a_class ["fill"]]
-      [div ~a:[a_class ["container"]]
-        [Eliom_output.Html5.a
-                ~a:[a_class ["brand"]]
-                ~service:main_service [pcdata "OcsiDocs"] ()
-(* todo: here will be the menu*)
-(* todo: here will be the login form*)
-        ]
-      ]
-    ]
-
-
+  lwt cf = connection_box () in
+  Lwt.return
+    (
+      div ~a:[a_class ["topbar"]]
+	[div ~a:[a_class ["fill"]]
+	    [div ~a:[a_class ["container"]]
+		[Eliom_output.Html5.a
+		    ~a:[a_class ["brand"]]
+		    ~service:main_service [pcdata "OcsiDocs"] ();
+		 (* todo: list map on a list*)
+		 ul [li [Eliom_output.Html5.a
+                            ~service:new_user_form_service [pcdata "Create account"] ()]];
+		 cf
+		]
+	    ]
+	]
+    )
+    
 (* *****                       Create Doc Form                         ***** *)
 
 let createdoc_form () =
@@ -154,17 +286,6 @@ let createdoc_form () =
 	  ~value:"Add a new document"
 	  ()
 	]]) ()
-
-
-(* *****                 List of Documents and proprietarys            ***** *)
-
-let documents = ref [("toto.txt", "db0");
-                     ("tata.txt", "Korfuri");
-                     ("tutu.txt", "Thor");
-                     ("titi.txt", "Vincent");
-                     ("tete.txt", "Sofia");
-                     ("tyty.txt", "db0");
-                     ]
 
 
 (* *****                       Documents List                          ***** *)
@@ -268,10 +389,11 @@ let _ =
   Eliom_output.Html5.register
     ~service:main_service
     (fun () () ->
+      lwt mb = menu_bar () in
       Lwt.return
         (html
 	 (html_header ())
-	  (body [menu_bar ();
+	  (body [mb;
 		 div ~a:[a_class ["container"]]
 		  [div ~a:[a_class ["content"]]
 		    [div ~a:[a_class ["row"]]
@@ -282,14 +404,80 @@ let _ =
 		footer ()
 		])));
 
+(* *****                        Users Services                         ***** *)
+
+  Eliom_output.Action.register
+    ~service:connection_service
+    (fun () (name, password) ->
+      if check_pwd name password
+      then Eliom_references.set username (Some name)
+      else Eliom_references.set wrong_pwd true);
+
+  Eliom_output.Action.register
+    ~service:disconnection_service
+    (fun () () -> Eliom_state.discard ~scope:Eliom_common.session ());
+
+  Eliom_output.Html5.register
+    ~service:new_user_form_service
+    (fun doc_name () ->
+      lwt mb = menu_bar () in
+      Lwt.return
+        (html
+	 (html_header ())
+	  (body [mb;
+		 div ~a:[a_class ["container"]]
+		  [div ~a:[a_class ["content"]]
+		      [div ~a:[a_class ["row"]]
+			  [div ~a:[a_class ["span10"]]
+			      [create_account_form ()];
+			   left_column ()]]
+		  ];
+		 footer ()
+		];
+	  )));
+
+  Eliom_output.Html5.register
+    ~service:account_confirmation_service
+    (fun () (name, pwd) ->
+      let create_account_service =
+        Eliom_output.Action.register_coservice
+          ~fallback:main_service
+          ~get_params:Eliom_parameters.unit
+          ~timeout:60.
+          (fun () () ->
+            users := (name, pwd)::!users;
+            Lwt.return ())
+      in
+      lwt mb = menu_bar () in
+    Lwt.return
+        (html
+	 (html_header ())
+	  (body [mb;
+		 div ~a:[a_class ["container"]]
+		  [div ~a:[a_class ["content"]]
+		      [div ~a:[a_class ["row"]]
+			  [div ~a:[a_class ["span10"]]
+			      [h1 [pcdata "Confirm account creation for "; pcdata name];
+                     p [Eliom_output.Html5.a ~service:create_account_service [pcdata "Yes"] ();
+                        pcdata " ";
+                        Eliom_output.Html5.a ~service:main_service [pcdata "No"] ()]];
+			   left_column ()]]
+		  ];
+		 footer ()
+		];
+	  )));
+
+(* *****                    Documents Services                         ***** *)
+
   Eliom_output.Html5.register
     ~service:editdoc_service
     (fun doc_name () ->
       lwt editdocform = editdoc doc_name in
+      lwt mb = menu_bar () in
       Lwt.return
         (html
 	 (html_header ())
-	  (body [menu_bar ();
+	  (body [mb;
 		 div ~a:[a_class ["container"]]
 		  [div ~a:[a_class ["content"]]
 		    [div ~a:[a_class ["row"]]
@@ -305,11 +493,12 @@ let _ =
       ~options:`Permanent
       (fun () doc_name ->
 	print_endline "sdfdfd";
-        if (*createdoc doc_name*)true
+        if ((createdoc ("docs/"^doc_name)) == Lwt.return true)
         then Lwt.return
 	  (Eliom_services.preapply
 	    ~service:editdoc_service
 	    doc_name
 	  )
-        else Lwt.return main_service)
-
+(*        else Lwt.return error_service) (* todo: give error type *)*)
+        else Lwt.return main_service) (* todo: give error type *)
+  
