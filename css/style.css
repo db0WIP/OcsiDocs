@@ -67,3 +67,8 @@ body
 {
     text-align: center;
 }
+
+form, eliom_nodisplay, fieldset
+{
+    display: inline;
+}

@@ -68,18 +68,23 @@ let createdoc_service =
 
 let users = ref [("db0", "lolilol")]
 
-let documents = ref [("toto.txt", "db0");
-                     ("tata.txt", "Korfuri");
-                     ("tutu.txt", "Thor");
-                     ("titi.txt", "Vincent");
-                     ("tete.txt", "Sofia");
-                     ("tyty.txt", "db0");
-                     ]
+let documents = ref [("toto.txt", "db0", true);
+                     ("tata.txt", "Korfuri", true);
+                     ("tutu.txt", "Thor", true);
+                     ("titi.txt", "Vincent", true);
+                     ("tete.txt", "Sofia", true);
+                     ("tyty.txt", "db0", false);
+                    ]
+
+(* *****                           Users                               ***** *)
 
 let username = Eliom_references.eref ~scope:Eliom_common.session None
 
 let wrong_pwd = Eliom_references.eref ~scope:Eliom_common.request false
 
+(* *****                         Exceptions                            ***** *)
+
+exception Document_not_found of string
 
 (* ************************************************************************* *)
 (*                              Tools Functions                              *)
@@ -89,6 +94,26 @@ let check_pwd name pwd =
   try List.assoc name !users = pwd
   with Not_found -> false
 
+
+let is_connected () =
+  lwt u = Eliom_references.get username in
+  lwt wp = Eliom_references.get wrong_pwd in
+  Lwt.return
+    (match u with
+      | Some s -> true
+      | None -> false
+    )
+
+let get_document_name (name, _, _) = name
+let get_document_author (_, author, _) = author
+let get_document_visibility (_, _, visibility) = visibility
+
+let rec get_document_by_name name = function
+  | []		-> raise (Document_not_found name)
+  | h::t	->
+    if ((get_document_name h) = name)
+    then h
+    else get_document_by_name name t
 
 (* ************************************************************************* *)
 (*                          Files Manipulations                              *)
@@ -200,7 +225,9 @@ let connection_box () =
   lwt wp = Eliom_references.get wrong_pwd in
   Lwt.return
     (match u with
-      | Some s -> div [p [pcdata "You are connected as "; pcdata s; ];
+      | Some s -> div
+	~a:[a_class ["pull-right"]]
+	[pcdata "You are connected as "; pcdata s;
                        disconnect_box () ]
       | None ->
         let l =
@@ -291,38 +318,50 @@ let createdoc_form () =
 (* *****                       Documents List                          ***** *)
 
 let doclist () =
-  ul (List.map (fun (name, _) -> 
-                  li [Eliom_output.Html5.a
-                        ~service:editdoc_service [pcdata name] name])
-               !documents)
+  ul (List.map (fun (name, _, _) -> (* todo: only my files or public files *)
+    li [Eliom_output.Html5.a
+           ~service:editdoc_service [pcdata name] name])
+        !documents)
 
 
 (* *****                           Main Page                           ***** *)
 
 let main_page () =
-  div ~a:[a_class ["span10"]]
-   [div ~a:[a_class ["row"]]
-     [div ~a:[a_class ["span5"]]
-       [br (); br ();
-        img ~alt:"Ocsigen"
-            ~src:(Eliom_output.Xhtml.make_uri
-		  ~service:(static_dir ())
-	    ["img";"ocsidocs_small.png"])
-	    ();
-       ];
-       div ~a:[a_class ["span4"]]
-        [br (); br (); br ();
-	 h3 ~a:[a_class ["center"]]
-	 [pcdata "Your documents in the cloud with OcsiDocs !"];
-	 br (); br ();
-	 p ~a:[a_class ["center"]]
-	 [pcdata "OcsiDocs is an online";
-	 br ();
-	 pcdata "collaborating text editor."];
-	 createdoc_form ();
-     ];
-    ];
-   ]
+  lwt ic = is_connected () in
+  Lwt.return
+    (
+      div ~a:[a_class ["span10"]]
+	[div ~a:[a_class ["row"]]
+	    [div ~a:[a_class ["span5"]]
+		[br (); br ();
+		 img ~alt:"Ocsigen"
+		   ~src:(Eliom_output.Xhtml.make_uri
+			   ~service:(static_dir ())
+			   ["img";"ocsidocs_small.png"])
+		   ();
+		];
+	     h1 [pcdata
+		    (match ic with
+		      | true -> "lol"
+		      | _ -> "mdr"
+		    )];
+       (*      h1 [pcdata (match (is_connected ()) with
+	       | true -> "Tu es connecte"
+	       | false ->  "Tu es pas connecte")];*)
+	     div ~a:[a_class ["span4"]]
+               [br (); br (); br ();
+		h3 ~a:[a_class ["center"]]
+		  [pcdata "Your documents in the cloud with OcsiDocs !"];
+		br (); br ();
+		p ~a:[a_class ["center"]]
+		  [pcdata "OcsiDocs is an online";
+		   br ();
+		   pcdata "collaborating text editor."];
+		createdoc_form ();
+	       ];
+	    ];
+	]
+    )
 
 
 (* *****                           Edition Page                        ***** *)
@@ -334,7 +373,7 @@ let editdoc doc_name =
       div ~a:[a_class ["span10"]]
 	[h1 [pcdata doc_name];
 	 h5 [pcdata "Owner : "];
-	 p [pcdata (List.assoc doc_name !documents)];
+	 p [pcdata (get_document_author (get_document_by_name doc_name !documents))];
 	 h5 [pcdata "Content : "];
 	 p [pcdata doc_content]]
     )
@@ -389,7 +428,8 @@ let _ =
   Eliom_output.Html5.register
     ~service:main_service
     (fun () () ->
-      lwt mb = menu_bar () in
+      lwt mb = menu_bar ()
+     and mp = main_page () in
       Lwt.return
         (html
 	 (html_header ())
@@ -397,7 +437,7 @@ let _ =
 		 div ~a:[a_class ["container"]]
 		  [div ~a:[a_class ["content"]]
 		    [div ~a:[a_class ["row"]]
-		    [main_page ();
+		    [mp;
 		     left_column ()]
 		  ];
 		 ];
