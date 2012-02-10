@@ -72,7 +72,7 @@ let _ = List.iter
       (fun filename ->
 	Documents.add_document filename user
       )
-      (Ofile.list_of_directory user)
+      (Ofile.list_of_directory ("docs/"^user))
   )
   (Ofile.list_of_directory "docs")
 
@@ -114,7 +114,7 @@ let get_username () =
   Lwt.return
     (match u with
       | Some s -> s
-      | None -> raise Not_Connected
+      | None -> ""
     )
 
 (* ************************************************************************* *)
@@ -288,14 +288,6 @@ let main_page () =
 			   ["img";"ocsidocs_small.png"])
 		   ();
 		];
-	     h1 [pcdata
-		    (match ic with
-		      | true -> "lol"
-		      | _ -> "mdr"
-		    )];
-       (*      h1 [pcdata (match (is_connected ()) with
-	       | true -> "Tu es connecte"
-	       | false ->  "Tu es pas connecte")];*)
 	     div ~a:[a_class ["span4"]]
                [br (); br (); br ();
 		h3 ~a:[a_class ["center"]]
@@ -315,7 +307,8 @@ let main_page () =
 (* *****                           Edition Page                        ***** *)
 
 let editdoc doc_name =
-  lwt doc_content = read_file ("docs/"^doc_name) in
+  lwt username = get_username ()
+  in lwt doc_content = read_file ("docs/"^username^"/"^doc_name) in
   Lwt.return
     (
       div ~a:[a_class ["span10"]]
