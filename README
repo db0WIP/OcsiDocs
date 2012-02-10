@@ -100,7 +100,7 @@ s'agit d'un projet Ocsigen), voire carrément gérer la diffusion sur
 des plateformes style Android market ou Apple store.
 
 
-=======		Soutenance #1		=======
+=======		Suivi #1		=======
 
 - Installer OClosure, utiliser l'éditeur de texte
   - comprendre comment il marche
@@ -129,7 +129,7 @@ des plateformes style Android market ou Apple store.
 
 dev@ocsigen.org
 
-=======		Soutenance #2		=======
+=======		Soutenance #1		=======
 
 - VirtualHost pour nom de domaine port 80
 - Gestion d'utilisateurs
@@ -143,4 +143,33 @@ dev@ocsigen.org
   - liste d'utilisateurs par fichiers
 - O'Closure
   - Remplacer le textarea par l'éditeur O'Closure
+
+=======		Suivi #2		=======
+
+- Finir la gestion des fichiers (créer un
+  document, lire un document, liste de documents)
+- Essayer js_of_ocaml côté client
+  - Coder une eliom application type graffiti
+- Étudier l'étendu de la balise textarea en
+  javascript.
+  - Voir l'existant :
+    http://codility.com/test/c/demoPHZVJ2-VCD/
+    http://collabedit.com/
+- OClosure
+  - Tester, installer pour voir et éventuellement
+    s'en inspirer
+- Pour plus tard :
+  - Choix de la coloration syntaxique
+  - Pas wysiwyg
+  - coloration de mots-clés, repérage de chaînes
+    de caractères
+  - Utilisation de OcsiMore (ou OcsiForge) qui
+    contient un lexer tout fait pour OCaml. C'est
+    celui qui est utilisé pour la coloration syntaxique
+    du site d'Ocsigen.
+  - Réfléchir à la gestion de mémoire
+    - Pendant l'édition collaborative d'un fichier
+    - Stockage persistant (éteint le serveur)
+
+Soutenance 2 : Début mars.
 
