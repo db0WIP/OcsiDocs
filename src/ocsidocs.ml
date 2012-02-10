@@ -64,27 +64,33 @@ let createdoc_service =
 (*                             Data Bases                                    *)
 (* ************************************************************************* *)
 
-(* *****                 List of Documents and owners                  ***** *)
+(* *****                         Init documents db                     ***** *)
+
+let _ = List.iter
+  (fun user -> 
+    List.iter
+      (fun filename ->
+	Documents.add_document filename user
+      )
+      (Ofile.list_of_directory user)
+  )
+  (Ofile.list_of_directory "docs")
+
+(* *****                         Exceptions                            ***** *)
+
+exception Document_not_found of string
+
+exception Not_Connected
+
+(* *****                 List of Users				       ***** *)
 
 let users = ref [("db0", "lolilol")]
-
-let documents = ref [("toto.txt", "db0", true);
-                     ("tata.txt", "Korfuri", true);
-                     ("tutu.txt", "Thor", true);
-                     ("titi.txt", "Vincent", true);
-                     ("tete.txt", "Sofia", true);
-                     ("tyty.txt", "db0", false);
-                    ]
 
 (* *****                           Users                               ***** *)
 
 let username = Eliom_references.eref ~scope:Eliom_common.session None
 
 let wrong_pwd = Eliom_references.eref ~scope:Eliom_common.request false
-
-(* *****                         Exceptions                            ***** *)
-
-exception Document_not_found of string
 
 (* ************************************************************************* *)
 (*                              Tools Functions                              *)
@@ -97,23 +103,19 @@ let check_pwd name pwd =
 
 let is_connected () =
   lwt u = Eliom_references.get username in
-  lwt wp = Eliom_references.get wrong_pwd in
   Lwt.return
     (match u with
       | Some s -> true
       | None -> false
     )
 
-let get_document_name (name, _, _) = name
-let get_document_author (_, author, _) = author
-let get_document_visibility (_, _, visibility) = visibility
-
-let rec get_document_by_name name = function
-  | []		-> raise (Document_not_found name)
-  | h::t	->
-    if ((get_document_name h) = name)
-    then h
-    else get_document_by_name name t
+let get_username () =
+  lwt u = Eliom_references.get username in
+  Lwt.return
+    (match u with
+      | Some s -> s
+      | None -> raise Not_Connected
+    )
 
 (* ************************************************************************* *)
 (*                          Files Manipulations                              *)
@@ -123,7 +125,6 @@ let read_file filename =
   lwt chan = Lwt_io.open_file ~mode:Lwt_io.input filename
   in Lwt_io.read_line chan
 
-
 let createdoc filename =
     lwt chan = Lwt_io.open_file
       ~mode:Lwt_io.input
@@ -131,71 +132,6 @@ let createdoc filename =
       ~perm:0o600
       filename
     in Lwt.return true
-(*let read_file2 filename =
-  let filein = open_in filename in
-    let 
-    input_line filein
-*)
-
-
-
-(* todo: raise exception
-  let filein = open_in filename in
-    try input_line filein
-      let line = input_line filein in
-        close_in filein;
-        line
-    with e ->
-    close_in_noerr filein;
-    raise e
-*)
-(*
-(* Using Sys.readdir. *)
-(*let totolol () =
-  Array.iter
-    (fun file ->
-       let path = Filename.concat dirname file in
-       (* do something with path *)
-       ())
-    (Sys.readdir dirname)
- 
-(*-----------------------------*)
- 
-(* Using Unix.opendir, readdir, and closedir. Note that the "." and ".."
-   directories are included in the result unlike with Sys.readdir. *)
-#load "unix.cma";;
- 
-let () =
-  let dir =
-    try Unix.opendir dirname
-    with Unix.Unix_error (e, _, _) ->
-      Printf.eprintf "can't opendir %s: %s\n"
-        dirname (Unix.error_message e);
-      exit 255 in
-  try
-    while true do
-      let file = Unix.readdir dir in
-      let path = Filename.concat dirname file in
-      (* do something with path *)
-      ()
-    done
-  with End_of_file ->
-    Unix.closedir dir
- 
-(*-----------------------------*)
- 
-(* Get a list of full paths to plain files. *)
-let plainfiles dir =
-  List.filter
-    (fun path ->
-       match Unix.lstat path with
-         | {Unix.st_kind=Unix.S_REG} -> true
-         | _ -> false)
-    (List.map
-       (Filename.concat dir)
-       (Array.to_list (Sys.readdir dir)))
-*)
-*)
 
 (* ************************************************************************* *)
 (*                            Display Functions                              *)
@@ -318,11 +254,23 @@ let createdoc_form () =
 (* *****                       Documents List                          ***** *)
 
 let doclist () =
-  ul (List.map (fun (name, _, _) -> (* todo: only my files or public files *)
-    li [Eliom_output.Html5.a
-           ~service:editdoc_service [pcdata name] name])
-        !documents)
-
+  lwt ic = is_connected () in
+  lwt username = get_username () in
+  let userlist =
+    match ic with
+      | true	-> ["public"; username]
+      | false	-> ["public"]
+  in
+  Lwt.return
+    (
+      div
+      [ul (List.map
+	    (fun doc ->
+	      let name = Documents.get_document_name doc in
+	      li [Eliom_output.Html5.a
+		     ~service:editdoc_service [pcdata name] name])
+            (Documents.get_documents_by_authors userlist))]
+    )
 
 (* *****                           Main Page                           ***** *)
 
@@ -373,7 +321,7 @@ let editdoc doc_name =
       div ~a:[a_class ["span10"]]
 	[h1 [pcdata doc_name];
 	 h5 [pcdata "Owner : "];
-	 p [pcdata (get_document_author (get_document_by_name doc_name !documents))];
+	 p [pcdata (Documents.get_document_author (Documents.get_document_by_name doc_name))];
 	 h5 [pcdata "Content : "];
 	 p [pcdata doc_content]]
     )
@@ -382,10 +330,13 @@ let editdoc doc_name =
 (* *****                           Left Column                         ***** *)
 
 let left_column () =
-  div ~a:[a_class ["span4"]]
-    [h4 [pcdata "Availables Documents"];
-     doclist ()]
-
+  lwt dc = doclist () in
+  Lwt.return
+    (
+      div ~a:[a_class ["span4"]]
+	[h4 [pcdata "Availables Documents"];
+	 dc]
+    )
 
 (* *****                             Footer                            ***** *)
 
@@ -429,7 +380,9 @@ let _ =
     ~service:main_service
     (fun () () ->
       lwt mb = menu_bar ()
-     and mp = main_page () in
+     and mp = main_page ()
+     and lc = left_column ()
+     in
       Lwt.return
         (html
 	 (html_header ())
@@ -438,7 +391,7 @@ let _ =
 		  [div ~a:[a_class ["content"]]
 		    [div ~a:[a_class ["row"]]
 		    [mp;
-		     left_column ()]
+		     lc]
 		  ];
 		 ];
 		footer ()
@@ -460,7 +413,9 @@ let _ =
   Eliom_output.Html5.register
     ~service:new_user_form_service
     (fun doc_name () ->
-      lwt mb = menu_bar () in
+      lwt mb = menu_bar ()
+     and lc = left_column ()
+     in
       Lwt.return
         (html
 	 (html_header ())
@@ -470,7 +425,7 @@ let _ =
 		      [div ~a:[a_class ["row"]]
 			  [div ~a:[a_class ["span10"]]
 			      [create_account_form ()];
-			   left_column ()]]
+			   lc]]
 		  ];
 		 footer ()
 		];
@@ -488,7 +443,9 @@ let _ =
             users := (name, pwd)::!users;
             Lwt.return ())
       in
-      lwt mb = menu_bar () in
+      lwt mb = menu_bar ()
+     and lc = left_column ()
+     in
     Lwt.return
         (html
 	 (html_header ())
@@ -501,7 +458,7 @@ let _ =
                      p [Eliom_output.Html5.a ~service:create_account_service [pcdata "Yes"] ();
                         pcdata " ";
                         Eliom_output.Html5.a ~service:main_service [pcdata "No"] ()]];
-			   left_column ()]]
+			   lc]]
 		  ];
 		 footer ()
 		];
@@ -513,7 +470,8 @@ let _ =
     ~service:editdoc_service
     (fun doc_name () ->
       lwt editdocform = editdoc doc_name in
-      lwt mb = menu_bar () in
+      lwt mb = menu_bar ()
+     and lc = left_column () in
       Lwt.return
         (html
 	 (html_header ())
@@ -522,7 +480,7 @@ let _ =
 		  [div ~a:[a_class ["content"]]
 		    [div ~a:[a_class ["row"]]
 		     [editdocform;
-		     left_column ()]]
+		     lc]]
 		  ];
 		footer ()
 		];
