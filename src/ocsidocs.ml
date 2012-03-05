@@ -66,12 +66,14 @@ let createdoc_service =
 (* *****                         Init documents db                     ***** *)
 
 let init_users_db () =
-  (*lwt password =  Ofile.string_of_file "docs/"^user^"/.password" in*)
-   List.iter
-     (fun user ->
-       Users.add_user_in_db user "lolilol"(*(get_password user)*)
-     )
-     (Ofile.list_of_directory ("docs"))
+  let get_password user = Ofile.string_of_file_noendline ("docs/"^user^"/.password") in
+  List.iter
+    (fun user ->
+      if (user <> "public")
+      then Users.add_user_in_db user (get_password user)
+      else ())
+    (Ofile.list_of_directory ("docs")
+)
 
 let init_document_db () =
   List.iter
@@ -498,8 +500,8 @@ let main () =
   begin
     init_users_db ();
     init_document_db ();
-    define_services ()
-(*    Users.dump_users ()*)
+    define_services ();
+    Users.dump_users ()
   end
 
 let _ = main ()

@@ -10,6 +10,9 @@ let string_of_file file =
 let list_of_file file =
   Std.input_list (open_in file)
 
+let string_of_file_noendline file =
+  List.hd (list_of_file file)
+
 let create_file filename =
   close_out (open_out filename)
 
