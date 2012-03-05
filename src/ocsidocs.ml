@@ -50,7 +50,7 @@ let account_confirmation_service =
 let editdoc_service =
   Eliom_services.service
     ~path:["docs"]
-    ~get_params:(suffix (string "doc_name"))
+    ~get_params:(suffix (string "author" ** string "doc_name"))
     ()
 
 let createdoc_service =
@@ -59,22 +59,30 @@ let createdoc_service =
     ~post_params:(string "doc_name")
     ()
 
-
 (* ************************************************************************* *)
 (*                             Data Bases                                    *)
 (* ************************************************************************* *)
 
 (* *****                         Init documents db                     ***** *)
 
-let _ = List.iter
-  (fun user -> 
-    List.iter
-      (fun filename ->
-	Documents.add_document filename user
-      )
-      (Ofile.list_of_directory ("docs/"^user))
-  )
-  (Ofile.list_of_directory "docs")
+let init_users_db () =
+  (*lwt password =  Ofile.string_of_file "docs/"^user^"/.password" in*)
+   List.iter
+     (fun user ->
+       Users.add_user_in_db user "lolilol"(*(get_password user)*)
+     )
+     (Ofile.list_of_directory ("docs"))
+
+let init_document_db () =
+  List.iter
+    (fun user -> 
+      List.iter
+	(fun filename ->
+	  Documents.add_document filename user
+	)
+	(Ofile.list_of_directory ("docs/"^user))
+    )
+    (Ofile.list_of_directory "docs")
 
 (* *****                         Exceptions                            ***** *)
 
@@ -82,24 +90,15 @@ exception Document_not_found of string
 
 exception Not_Connected
 
-(* *****                 List of Users				       ***** *)
-
-let users = ref [("db0", "lolilol")]
-
-(* *****                           Users                               ***** *)
+(* *****                           User logged info                    ***** *)
 
 let username = Eliom_references.eref ~scope:Eliom_common.session None
 
 let wrong_pwd = Eliom_references.eref ~scope:Eliom_common.request false
 
 (* ************************************************************************* *)
-(*                              Tools Functions                              *)
+(*                         Use  Tools Functions                              *)
 (* ************************************************************************* *)
-
-let check_pwd name pwd =
-  try List.assoc name !users = pwd
-  with Not_found -> false
-
 
 let is_connected () =
   lwt u = Eliom_references.get username in
@@ -120,10 +119,6 @@ let get_username () =
 (* ************************************************************************* *)
 (*                          Files Manipulations                              *)
 (* ************************************************************************* *)
-
-let read_file filename = 
-  lwt chan = Lwt_io.open_file ~mode:Lwt_io.input filename
-  in Lwt_io.read_line chan
 
 let createdoc filename =
     lwt chan = Lwt_io.open_file
@@ -163,13 +158,12 @@ let connection_box () =
     (match u with
       | Some s -> div
 	~a:[a_class ["pull-right"]]
-	[pcdata "You are connected as "; pcdata s;
-                       disconnect_box () ]
+	[em [pcdata "You are connected as "; pcdata s];
+         disconnect_box () ]
       | None ->
         let l =
           [Eliom_output.Html5.post_form
 	      ~service:connection_service
-	      ~a:[a_class ["pull-right"]]
               (fun (name1, name2) ->
 		[Eliom_output.Html5.string_input
 		       ~input_type:`Text
@@ -188,8 +182,8 @@ let connection_box () =
                     ]) ()]
         in
         if wp
-        then div ((p [em [pcdata "Wrong user or password"]])::l)
-        else div l
+        then div ~a:[a_class ["pull-right"]] ((em [pcdata "Wrong user or password"])::l)
+        else div ~a:[a_class ["pull-right"]] l
     )
 
 let create_account_form () =
@@ -266,9 +260,11 @@ let doclist () =
       div
       [ul (List.map
 	    (fun doc ->
-	      let name = Documents.get_document_name doc in
+	      let name = Documents.get_document_name doc
+	      and author = Documents.get_document_author doc in
+	      let link = "["^author^"] "^name in
 	      li [Eliom_output.Html5.a
-		     ~service:editdoc_service [pcdata name] name])
+		     ~service:editdoc_service [pcdata link] (author, name)])
             (Documents.get_documents_by_authors userlist))]
     )
 
@@ -306,9 +302,8 @@ let main_page () =
 
 (* *****                           Edition Page                        ***** *)
 
-let editdoc doc_name =
-  lwt username = get_username ()
-  in lwt doc_content = read_file ("docs/"^username^"/"^doc_name) in
+let editdoc author doc_name =
+  lwt doc_content = Ofile.string_of_file ("docs/"^author^"/"^doc_name) in
   Lwt.return
     (
       div ~a:[a_class ["span10"]]
@@ -367,7 +362,7 @@ let footer () =
 (*                          Services definitions                             *)
 (* ************************************************************************* *)
 
-let _ =
+let define_services () =
 
   Eliom_output.Html5.register
     ~service:main_service
@@ -395,7 +390,7 @@ let _ =
   Eliom_output.Action.register
     ~service:connection_service
     (fun () (name, password) ->
-      if check_pwd name password
+      if Users.check_pwd name password
       then Eliom_references.set username (Some name)
       else Eliom_references.set wrong_pwd true);
 
@@ -433,7 +428,7 @@ let _ =
           ~get_params:Eliom_parameters.unit
           ~timeout:60.
           (fun () () ->
-            users := (name, pwd)::!users;
+            (Users.add_user name pwd);
             Lwt.return ())
       in
       lwt mb = menu_bar ()
@@ -447,6 +442,7 @@ let _ =
 		  [div ~a:[a_class ["content"]]
 		      [div ~a:[a_class ["row"]]
 			  [div ~a:[a_class ["span10"]]
+			      (* todo : the username must not start by . or be public *)
 			      [h1 [pcdata "Confirm account creation for "; pcdata name];
                      p [Eliom_output.Html5.a ~service:create_account_service [pcdata "Yes"] ();
                         pcdata " ";
@@ -461,8 +457,8 @@ let _ =
 
   Eliom_output.Html5.register
     ~service:editdoc_service
-    (fun doc_name () ->
-      lwt editdocform = editdoc doc_name in
+    (fun (author, doc_name) () ->
+      lwt editdocform = editdoc author doc_name in
       lwt mb = menu_bar ()
      and lc = left_column () in
       Lwt.return
@@ -483,13 +479,28 @@ let _ =
       ~service:createdoc_service
       ~options:`Permanent
       (fun () doc_name ->
-	print_endline "sdfdfd";
-        if ((createdoc ("docs/"^doc_name)) == Lwt.return true)
-        then Lwt.return
+	lwt username = get_username () in
+	if ((createdoc ("docs/"^doc_name)) == Lwt.return true)
+	then Lwt.return
 	  (Eliom_services.preapply
-	    ~service:editdoc_service
-	    doc_name
+	    ~service:editdoc_service (username, doc_name)
 	  )
 (*        else Lwt.return error_service) (* todo: give error type *)*)
-        else Lwt.return main_service) (* todo: give error type *)
-  
+	else Lwt.return main_service) (* todo: give error type *)
+(* todo: name must not start with a . *)  
+
+
+(* ************************************************************************* *)
+(*                             Initialisation                                *)
+(* ************************************************************************* *)
+
+let main () =
+  begin
+    init_users_db ();
+    init_document_db ();
+    define_services ()
+(*    Users.dump_users ()*)
+  end
+
+let _ = main ()
+

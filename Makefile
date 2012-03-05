@@ -1,9 +1,13 @@
 
-SRCS	=	src/ofile.mli		\
+SRCS	=	\
+		src/ofile.mli		\
 		src/ofile.ml		\
+		src/users.mli		\
+		src/users.ml		\
 		src/documents.mli	\
 		src/documents.ml	\
-		src/ocsidocs.ml
+		src/ocsidocs.ml		\
+		\
 
 INCLUDE	=	-I +extlib extLib.cma unix.cma
 

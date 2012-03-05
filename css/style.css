@@ -72,3 +72,32 @@ form, eliom_nodisplay, fieldset
 {
     display: inline;
 }
+
+.topbar form
+{
+    display: inline;
+    float: none;
+}
+
+.topbar .pull-right
+{
+    margin-top: 5px;
+}
+
+.topbar em
+{
+    color: white;
+    padding-right: 10px;
+}
+
+fieldset
+{
+    margin: 0;
+    padding: 0;
+    display: inline;
+}
+
+.eliom_nodisplay
+{
+    display: inline;
+}
