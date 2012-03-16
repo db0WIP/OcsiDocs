@@ -628,7 +628,6 @@ textarea,
 select,
 .uneditable-input {
   display: inline-block;
-  width: 210px;
   height: 18px;
   padding: 4px;
   font-size: 13px;
@@ -638,6 +637,11 @@ select,
   -webkit-border-radius: 3px;
   -moz-border-radius: 3px;
   border-radius: 3px;
+}
+input,
+select,
+.uneditable-input {
+  width: 210px;
 }
 select {
   padding: initial;

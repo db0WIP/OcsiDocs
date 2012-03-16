@@ -14,7 +14,11 @@ let string_of_file_noendline file =
   List.hd (list_of_file file)
 
 let create_file filename =
-  close_out (open_out filename)
+  match (try Some (open_out filename)
+         with Sys_error s -> None)
+  with
+    | None	-> false
+    | Some s	-> let _ = close_out s in true
 
 let list_of_directory dirname =
   let rec list_directory_aux dir acc =

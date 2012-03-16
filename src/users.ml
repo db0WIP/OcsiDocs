@@ -14,8 +14,8 @@ let add_user_in_db name pwd =
 
 let add_user name pwd =
   begin
-    Ofile.create_directory ("docs/"^name);
-    Ofile.string_to_file pwd ("docs/"^name^"/.password");
+    Ofile.create_directory ("docs/" ^ name);
+    Ofile.string_to_file pwd ("docs/" ^ name ^ "/.password");
     add_user_in_db name pwd
   end
 

@@ -47,10 +47,16 @@ let account_confirmation_service =
 
 (* *****                    Documents Services                         ***** *)
 
-let editdoc_service =
+let editdocpage_service =
   Eliom_services.service
     ~path:["docs"]
     ~get_params:(suffix (string "author" ** string "doc_name"))
+    ()
+
+let editdoc_service =
+  Eliom_services.post_service
+    ~fallback:editdocpage_service
+    ~post_params:(string "content")
     ()
 
 let createdoc_service =
@@ -66,7 +72,7 @@ let createdoc_service =
 (* *****                         Init documents db                     ***** *)
 
 let init_users_db () =
-  let get_password user = Ofile.string_of_file_noendline ("docs/"^user^"/.password") in
+  let get_password user = Ofile.string_of_file_noendline ("docs/" ^ user ^ "/.password") in
   List.iter
     (fun user ->
       if (user <> "public")
@@ -80,9 +86,9 @@ let init_document_db () =
     (fun user -> 
       List.iter
 	(fun filename ->
-	  Documents.add_document filename user
+	  Documents.add_document_in_db filename user
 	)
-	(Ofile.list_of_directory ("docs/"^user))
+	(Ofile.list_of_directory ("docs/" ^ user))
     )
     (Ofile.list_of_directory "docs")
 
@@ -115,20 +121,8 @@ let get_username () =
   Lwt.return
     (match u with
       | Some s -> s
-      | None -> ""
+      | None -> "public"
     )
-
-(* ************************************************************************* *)
-(*                          Files Manipulations                              *)
-(* ************************************************************************* *)
-
-let createdoc filename =
-    lwt chan = Lwt_io.open_file
-      ~mode:Lwt_io.input
-      ~flags:[Unix.O_WRONLY; Unix.O_EXCL; Unix.O_CREAT]
-      ~perm:0o600
-      filename
-    in Lwt.return true
 
 (* ************************************************************************* *)
 (*                            Display Functions                              *)
@@ -264,9 +258,9 @@ let doclist () =
 	    (fun doc ->
 	      let name = Documents.get_document_name doc
 	      and author = Documents.get_document_author doc in
-	      let link = "["^author^"] "^name in
+	      let link = ("[" ^ author ^ "] " ^ name) in
 	      li [Eliom_output.Html5.a
-		     ~service:editdoc_service [pcdata link] (author, name)])
+		     ~service:editdocpage_service [pcdata link] (author, name)])
             (Documents.get_documents_by_authors userlist))]
     )
 
@@ -304,16 +298,46 @@ let main_page () =
 
 (* *****                           Edition Page                        ***** *)
 
-let editdoc author doc_name =
-  lwt doc_content = Ofile.string_of_file ("docs/"^author^"/"^doc_name) in
+let editdocform author doc doc_content = 
+  Lwt.return
+    (div [
+      (Eliom_output.Html5.post_form
+	 ~service:editdoc_service
+	 (fun (content_name) ->
+	   [
+            Eliom_output.Html5.string_input
+	      ~input_type:`Submit 
+	      ~a:[a_class ["btn btn-inverse"]]
+	      ~value:"Save" ();
+	    br ();
+	     Eliom_output.Html5.textarea
+	       ~value:doc_content
+	       ~name:content_name
+	       ~rows:20
+	       ~cols:80
+	       ();
+	    br ();
+            Eliom_output.Html5.string_input
+	      ~input_type:`Submit 
+	      ~a:[a_class ["btn btn-inverse"]]
+	      ~value:"Save" ()
+	   ]) (author, Documents.get_document_name doc)
+      )])
+
+let editdocpage author doc_name =
+  lwt doc_content = Ofile.string_of_file ("docs/" ^ author ^ "/" ^ doc_name) in
+  let doc = Documents.get_document_by_name doc_name in
+  lwt edf = editdocform author doc doc_content in
   Lwt.return
     (
       div ~a:[a_class ["span10"]]
 	[h1 [pcdata doc_name];
 	 h5 [pcdata "Owner : "];
-	 p [pcdata (Documents.get_document_author (Documents.get_document_by_name doc_name))];
+	 p [pcdata (Documents.get_document_author doc)];
 	 h5 [pcdata "Content : "];
-	 p [pcdata doc_content]]
+	 div ~a:[a_class ["editdoc"]]
+	   [edf]
+	]
     )
 
 
@@ -397,6 +421,14 @@ let define_services () =
       else Eliom_references.set wrong_pwd true);
 
   Eliom_output.Action.register
+    ~service:editdoc_service
+    (fun (author, doc_name) ->
+    (fun new_content ->
+      Lwt.return
+	(Documents.update_document (Documents.get_document_by_name doc_name) new_content)
+    ));
+
+  Eliom_output.Action.register
     ~service:disconnection_service
     (fun () () -> Eliom_state.discard ~scope:Eliom_common.session ());
 
@@ -458,9 +490,9 @@ let define_services () =
 (* *****                    Documents Services                         ***** *)
 
   Eliom_output.Html5.register
-    ~service:editdoc_service
+    ~service:editdocpage_service
     (fun (author, doc_name) () ->
-      lwt editdocform = editdoc author doc_name in
+      lwt editdocpageform = editdocpage author doc_name in
       lwt mb = menu_bar ()
      and lc = left_column () in
       Lwt.return
@@ -470,7 +502,7 @@ let define_services () =
 		 div ~a:[a_class ["container"]]
 		  [div ~a:[a_class ["content"]]
 		    [div ~a:[a_class ["row"]]
-		     [editdocform;
+		     [editdocpageform;
 		     lc]]
 		  ];
 		footer ()
@@ -482,10 +514,10 @@ let define_services () =
       ~options:`Permanent
       (fun () doc_name ->
 	lwt username = get_username () in
-	if ((createdoc ("docs/"^doc_name)) == Lwt.return true)
+	if ((Documents.add_document doc_name username) == true)
 	then Lwt.return
 	  (Eliom_services.preapply
-	    ~service:editdoc_service (username, doc_name)
+	    ~service:editdocpage_service (username, doc_name)
 	  )
 (*        else Lwt.return error_service) (* todo: give error type *)*)
 	else Lwt.return main_service) (* todo: give error type *)

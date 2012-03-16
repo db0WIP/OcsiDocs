@@ -101,3 +101,16 @@ fieldset
 {
     display: inline;
 }
+.editdoc textarea
+{
+    color: white;
+    background: #333;
+    margin-left: 40px;
+}
+
+.editdoc input
+{
+    margin: 5px;
+    float: right;
+    margin-right: 40px;
+}
