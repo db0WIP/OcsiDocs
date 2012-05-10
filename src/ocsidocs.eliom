@@ -4,6 +4,20 @@ open HTML5.M
 open Eliom_services
 open Eliom_parameters
 
+module My_appl =
+  Eliom_output.Eliom_appl (struct
+    let application_name = "ocsidocs"
+  end)
+
+
+{client{
+
+(*  let _ = Dom_html.window##alert(Js.string "Salut")*)
+ }}
+
+{shared{
+ }}
+
 (* ************************************************************************* *)
 (*                          Services declarations                            *)
 (* ************************************************************************* *)
@@ -56,7 +70,7 @@ let editdocpage_service =
 let editdoc_service =
   Eliom_services.post_service
     ~fallback:editdocpage_service
-    ~post_params:(string "content")
+    ~post_params:(set string "content")
     ()
 
 let createdoc_service =
@@ -187,10 +201,10 @@ let create_account_form () =
     (fun (name1, name2) ->
       [h1 [pcdata "Create an account"];
 	    fieldset
-	      [label (*~a:[Eliom_output.Html5.a_for name1]*) [pcdata "login: "];
+	      [label [pcdata "login: "];
                Eliom_output.Html5.string_input ~input_type:`Text ~name:name1 ();
                br ();
-               label (*~a:[Eliom_output.Html5.a_for name2]*) [pcdata "password: "];
+               label [pcdata "password: "];
                Eliom_output.Html5.string_input ~input_type:`Password ~name:name2 ();
                br ();
                Eliom_output.Html5.string_input ~input_type:`Submit ~value:"Connect" ()
@@ -204,7 +218,8 @@ let menu_bar () =
   Lwt.return
     (
       div ~a:[a_class ["topbar"]]
-	[div ~a:[a_class ["fill"]]
+	[
+	 div ~a:[a_class ["fill"]]
 	    [div ~a:[a_class ["container"]]
 		[Eliom_output.Html5.a
 		    ~a:[a_class ["brand"]]
@@ -298,7 +313,23 @@ let main_page () =
 
 (* *****                           Edition Page                        ***** *)
 
-let editdocform author doc doc_content = 
+let editdocform author doc = 
+  let s = p [pcdata "You are editing this document and I know it because I'ms using js_of_ocaml like a boss"] in
+  let rec textarealist n content_name = function
+    | []	-> []
+    | str::t	-> 
+      (p ~a:[a_class ["numerotation"]] [pcdata (string_of_int n)])
+      ::(Eliom_output.Html5.string_input
+	   ~input_type:`Text
+	   ~a:[a_class ["textedit"];
+	       a_onclick {{ Dom.appendChild (Dom_html.document##body)
+			    (Eliom_client.Html5.of_p %s) }}]
+	   ~value:str
+	   ~name:content_name
+	   ())
+	::(br ())
+	::(textarealist (n + 1) content_name t)
+  in
   Lwt.return
     (div [
       (Eliom_output.Html5.post_form
@@ -310,13 +341,10 @@ let editdocform author doc doc_content =
 	      ~a:[a_class ["btn btn-inverse"]]
 	      ~value:"Save" ();
 	    br ();
-	     Eliom_output.Html5.textarea
-	       ~value:doc_content
-	       ~name:content_name
-	       ~rows:20
-	       ~cols:80
-	       ();
 	    br ();
+	    br ()]@
+	     textarealist 1 content_name (Documents.get_document_content_list doc)
+	    @[br ();
             Eliom_output.Html5.string_input
 	      ~input_type:`Submit 
 	      ~a:[a_class ["btn btn-inverse"]]
@@ -325,9 +353,8 @@ let editdocform author doc doc_content =
       )])
 
 let editdocpage author doc_name =
-  lwt doc_content = Ofile.string_of_file ("docs/" ^ author ^ "/" ^ doc_name) in
   let doc = Documents.get_document_by_name doc_name in
-  lwt edf = editdocform author doc doc_content in
+  lwt edf = editdocform author doc in
   Lwt.return
     (
       div ~a:[a_class ["span10"]]
@@ -390,7 +417,7 @@ let footer () =
 
 let define_services () =
 
-  Eliom_output.Html5.register
+  My_appl.register
     ~service:main_service
     (fun () () ->
       lwt mb = menu_bar ()
@@ -425,14 +452,14 @@ let define_services () =
     (fun (author, doc_name) ->
     (fun new_content ->
       Lwt.return
-	(Documents.update_document (Documents.get_document_by_name doc_name) new_content)
+	(Documents.update_document_from_list (Documents.get_document_by_name doc_name) new_content)
     ));
 
   Eliom_output.Action.register
     ~service:disconnection_service
     (fun () () -> Eliom_state.discard ~scope:Eliom_common.session ());
 
-  Eliom_output.Html5.register
+  My_appl.register
     ~service:new_user_form_service
     (fun doc_name () ->
       lwt mb = menu_bar ()
@@ -453,7 +480,7 @@ let define_services () =
 		];
 	  )));
 
-  Eliom_output.Html5.register
+  My_appl.register
     ~service:account_confirmation_service
     (fun () (name, pwd) ->
       let create_account_service =
@@ -489,7 +516,7 @@ let define_services () =
 
 (* *****                    Documents Services                         ***** *)
 
-  Eliom_output.Html5.register
+  My_appl.register
     ~service:editdocpage_service
     (fun (author, doc_name) () ->
       lwt editdocpageform = editdocpage author doc_name in

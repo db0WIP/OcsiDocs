@@ -101,12 +101,6 @@ fieldset
 {
     display: inline;
 }
-.editdoc textarea
-{
-    color: white;
-    background: #333;
-    margin-left: 40px;
-}
 
 .editdoc input
 {
@@ -114,3 +108,28 @@ fieldset
     float: right;
     margin-right: 40px;
 }
+
+.editdoc .textedit
+{
+    background: #555;
+    color: white;
+    border: none;
+    width: 500px;
+    float: none;
+    margin: 0px;
+}
+
+.editdoc .textedit:focus
+{
+    background: #333;
+    box-shadow: 0 1px 3px 3px #23519F;
+}
+
+.numerotation
+{
+    display: inline;
+    padding: 8px;
+    color: grey;
+    width: 30px;
+}
+
